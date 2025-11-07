@@ -3,8 +3,8 @@
 #include <WiFiClientSecure.h>
 #include <UniversalTelegramBot.h>
 
-#define EEPROM_SIZE 4096
-#define MAX_CHAT_IDS 100
+#define EEPROM_SIZE 512
+// #define MAX_CHAT_IDS 100
 #define DEVICE_NAME_ADDR 0
 
 const char* ssid="OnePlus 13R A83E";
@@ -20,6 +20,7 @@ const char* commandGetChipId = "/get_chip_id";
 const char* commandDevice = "/device";
 const char* commendForeverSleepOn = "/foreverSleepOn";
 const char* commendForeverSleepOff = "/foreverSleepOff";
+const char* commendGetFromEEPROM = "/getFromEEPROM";
 
 bool ledPinStatus = HIGH;
 int LedPin = 2;
@@ -31,12 +32,12 @@ WiFiClientSecure secured_client;
 UniversalTelegramBot bot(bot_token, secured_client);
 
 struct DeviceData {
-  char wifiSSID[64];
-  char wifiPassword[64];
   char deviceName[256];  // 124 кириличних символи
-  bool deepSleepEnabled;
-  int64_t chatIds[MAX_CHAT_IDS];
-  int chatIdCount;
+   //   char wifiSSID[64];
+   //   char wifiPassword[64];
+  // bool deepSleepEnabled;
+  // int64_t chatIds[MAX_CHAT_IDS];
+  // int chatIdCount;
 };
 
 DeviceData data;
@@ -44,14 +45,16 @@ DeviceData data;
 void setup() {
   pinMode(LedPin, OUTPUT);
   digitalWrite(LedPin, ledPinStatus);
+  Serial.begin(115200);
 
   EEPROM.begin(EEPROM_SIZE);
   String EEPROMresponse = readFromEEPROM();
-  if (EEPROMresponse) {
-    devName = EEPROMresponse;
-    startMessage = devName;
-  }
-  Serial.begin(115200);
+  Serial.println("Data from EEPROM");
+  Serial.println(EEPROMresponse);
+  // if (EEPROMresponse) {
+  //   devName = EEPROMresponse;
+  //   startMessage = devName;
+  // }
 
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
@@ -65,7 +68,27 @@ void setup() {
   }
 }
 
-int writeInEEPROM(const String& text) {
+void writeDataInEEPROM() {
+  const byte* p = (const byte*)(const void*)&data;
+  for (unsigned int i = 0; i < sizeof(DeviceData); i++) {
+    EEPROM.write(i, *p++);
+  }
+  EEPROM.commit();
+}
+
+void writeDeviceNameInDeviceData(String& deviceName) {
+  size_t maxLen = sizeof(data.deviceName) - 1;
+  size_t len = deviceName.length() * 2;
+
+  for (size_t i = 0; i < len; i=i+1){
+    data.deviceName[i] = deviceName[i];
+  }
+
+  data.deviceName[len] = '\0';
+}
+
+
+int writeDeviceNameInEEPROM(const String& text) {
   size_t maxLen = sizeof(data.deviceName) - 1;
   size_t len = text.length() * 2;
   
@@ -73,7 +96,7 @@ int writeInEEPROM(const String& text) {
     return -1;
   }
 
-  if (text == readFromEEPROM()) {
+  if (text == readFromEEPROM()) { // Треба поправиви
     return 0;
   }
 
@@ -94,8 +117,6 @@ String readFromEEPROM() {
   String result = "";
   for (int i = 0; i < EEPROM_SIZE; i = i + 1) {
     char c = EEPROM.read(i);
-
-    if (c == '\0') break;
     result += c;
   }
   return result;
@@ -112,7 +133,8 @@ void parseMessageText(int newMessages) {
           String(commandLedOff) + " - вимкнути світлодіод.\n" +
           String(commandGetChipId) + " - дізнатися ID номер.\n" +
           "/" + String(chipId) + "- перевірити назву девайса\n" +
-          String(commandDevice) + String(chipId) + "_" + " - Змінити назву девайса. Після `_` дописати майбутню назву";
+          String(commandDevice) + String(chipId) + "_" + " - Змінити назву девайса. Після `_` дописати майбутню назву\n" +
+          String(commendGetFromEEPROM) + " - дістати усі дані з EEPROM";
         bot.sendMessage(
           chatId, response, "");
       }
@@ -136,31 +158,36 @@ void parseMessageText(int newMessages) {
       return;
     }
 
-    if (messageText.indexOf(String(chipId)) != -1) {
+    if (messageText.indexOf(String(chipId)) != -1) { // <chipId>
       if (messageText == "/" + String(chipId)) {
         bot.sendMessage(chatId, devName, "");
         return;
       }
 
-      if (messageText.indexOf(String(commandDevice) + String(chipId)) != -1) {
-        int underscoreIndex = messageText.indexOf('_');
+      if (messageText.indexOf(String(commandDevice) + String(chipId)) != -1) { // device<chipId>
+        int underscoreIndex = messageText.indexOf('_'); // device<chipId>_<text>
 
         if (underscoreIndex != -1) {
           devName = messageText.substring(underscoreIndex + 1);
-          int result = writeInEEPROM(devName);
-          if (result == -1) {
-            bot.sendMessage(chatId, "Помилка назви.", "");
-          }
-          if (result == 0) {
-            bot.sendMessage(chatId, "Назва не змінена.", "");
-          }
-          if (result == 1) {
-            bot.sendMessage(chatId, "Назва успішно змінена!", "");
-          }
-        } else {
-          bot.sendMessage(chatId, "Не вказано розділовий знак `_`", "");
+          writeDeviceNameInDeviceData(devName);
+          writeDataInEEPROM();
+        //   if (result == -1) {
+        //     bot.sendMessage(chatId, "Помилка назви.", "");
+        //   }
+        //   if (result == 0) {
+        //     bot.sendMessage(chatId, "Назва не змінена.", "");
+        //   }
+        //   if (result == 1) {
+        //     bot.sendMessage(chatId, "Назва успішно змінена!", "");
+        //   }
+        // } else {
+        //   bot.sendMessage(chatId, "Не вказано розділовий знак `_`", "");
         }
       }
+    }
+
+    if (messageText == commendGetFromEEPROM) { // getFromEEPROM
+      bot.sendMessage(chatId, readFromEEPROM(), "");
     }
   }
 }
