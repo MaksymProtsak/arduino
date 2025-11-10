@@ -18,11 +18,11 @@ const char* commandLedOn = "/led_on";
 const char* commandLedOff = "/led_off";
 const char* commandGetChipId = "/get_chip_id";
 const char* commandDevice = "/device";
-const char* commendForeverSleepOn = "/foreverSleepOn";
-const char* commendForeverSleepOff = "/foreverSleepOff";
-const char* commendGetFromEEPROM = "/getFromEEPROM";
-const char* commendSetWiFiName = "/setWiFiName";
-const char* commendGetWiFiName = "/getWiFiName";
+const char* commandForeverSleepOn = "/foreverSleepOn";
+const char* commandForeverSleepOff = "/foreverSleepOff";
+const char* commandGetFromEEPROM = "/getFromEEPROM";
+const char* commandSetWiFiName = "/setWiFiName_";
+const char* commandGetWiFiName = "/getWiFiName";
 
 
 bool ledPinStatus = HIGH;
@@ -113,9 +113,9 @@ void parseMessageText(int newMessages) {
           String(commandGetChipId) + " - дізнатися ID номер.\n" +
           "/" + String(chipId) + "- перевірити назву девайса\n" +
           String(commandDevice) + String(chipId) + "_" + " - Змінити назву девайса. Після `_` дописати майбутню назву\n" +
-          String(commendGetFromEEPROM) + " - дістати усі дані з EEPROM\n" +
-          String(commendSetWiFiName) + " - встановити назву WiFi\n" +
-          String(commendGetWiFiName) + " - переглянути назву WiFi";
+          String(commandGetFromEEPROM) + " - дістати усі дані з EEPROM\n" +
+          String(commandSetWiFiName) + " - встановити назву WiFi. Після `_` дописати майбутню назву\n" +
+          String(commandGetWiFiName) + " - переглянути назву WiFi";
         bot.sendMessage(
           chatId, response, "");
       }
@@ -170,7 +170,20 @@ void parseMessageText(int newMessages) {
       }
     }
 
-    if (messageText == commendGetFromEEPROM) {
+    if (messageText == commandSetWiFiName) { // /setWiFiName_
+      int underscoreIndex = messageText.indexOf('_'); // /setWiFiName_<text>
+      int result = 0;
+      if (underscoreIndex != -1) {
+        bot.sendMessage(chatId, String(underscoreIndex), "");
+        String wifiName = messageText.substring(underscoreIndex + 1);
+        bot.sendMessage(chatId, "WiFi name: " + wifiName, "");
+
+        // result = writeWiFiNameInDeviceData(wifiName);
+      }
+
+    }
+
+    if (messageText == commandGetFromEEPROM) {
       String result = readFromEEPROM().deviceName;
       bot.sendMessage(chatId, result, "");
     }
