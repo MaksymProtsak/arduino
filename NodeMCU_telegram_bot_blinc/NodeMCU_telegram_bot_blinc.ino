@@ -29,6 +29,7 @@ bool ledPinStatus = HIGH;
 int LedPin = 2;
 String startMessage = "This is WiFi button.";
 String devName;
+String wifiSSID;
 bool foreverSleep;
 
 WiFiClientSecure secured_client;
@@ -52,11 +53,12 @@ void setup() {
 
   EEPROM.begin(EEPROM_SIZE);
   DeviceData EEPROMresponse = readFromEEPROM();
-  Serial.println("Data from EEPROM");
-  Serial.println(EEPROMresponse.deviceName);
   if (EEPROMresponse.deviceName) {
      devName = EEPROMresponse.deviceName;
      startMessage = devName;
+   }
+    if (EEPROMresponse.deviceName) {
+    wifiSSID = EEPROMresponse.wifiSSID;
    }
 
   WiFi.begin(ssid, password);
@@ -94,6 +96,24 @@ int writeDeviceNameInDeviceData(String& deviceName) {
   return 1;
 }
 
+int writeWiFiNameInDeviceData(String& wifiName) {
+  size_t maxLen = sizeof(data.wifiSSID) - 1;
+  size_t len = wifiName.length() * 2;
+  if (len >= maxLen || len == 0) {
+    return -1;
+  }
+  if (wifiName == (readFromEEPROM().wifiSSID)) {
+    return 0;
+  }
+
+  for (size_t i = 0; i < len; i=i+1){
+    data.wifiSSID[i] = wifiName[i];
+  }
+
+  data.wifiSSID[len] = '\0';
+  return 1;
+}
+
 
 DeviceData readFromEEPROM() {
   EEPROM.get(0, data);
@@ -104,21 +124,20 @@ void parseMessageText(int newMessages) {
   for (int i = 0; i < newMessages; i = i + 1) {
     String messageText = bot.messages[i].text;
 
-      if (messageText == commandStart){ // /start
-        String response =
-          "Команди:\n" +
-          String(commandLedOn) + " - увімкнути світлодіод.\n" +
-          String(commandLedOff) + " - вимкнути світлодіод.\n" +
-          String(commandGetChipId) + " - дізнатися ID номер.\n" +
-          "/" + String(chipId) + "- перевірити назву девайса\n" +
-          String(commandDevice) + String(chipId) + "_" + " - Змінити назву девайса. Після `_` дописати майбутню назву\n" +
-          String(commandGetFromEEPROM) + " - дістати усі дані з EEPROM\n" +
-          String(commandSetWiFiName) + " - встановити назву WiFi. Після `_` дописати майбутню назву\n" +
-          String(commandGetWiFiName) + " - переглянути назву WiFi";
-        bot.sendMessage(
-          chatId, response, "");
-        return;
-      }
+    if (messageText == commandStart){ // /start
+      String response =
+        "Команди:\n" +
+        String(commandLedOn) + " - увімкнути світлодіод.\n" +
+        String(commandLedOff) + " - вимкнути світлодіод.\n" +
+        String(commandGetChipId) + " - дізнатися ID номер.\n" +
+        "/" + String(chipId) + "- перевірити назву девайса\n" +
+        String(commandDevice) + String(chipId) + "_" + " - Змінити назву девайса. Після `_` дописати майбутню назву\n" +
+        String(commandGetFromEEPROM) + " - дістати всі дані з EEPROM\n" +
+        String(commandSetWiFiName) + " - встановити назву WiFi. Після `_` дописати майбутню назву\n" +
+        String(commandGetWiFiName) + " - переглянути назву WiFi";
+      bot.sendMessage(chatId, response, "");
+      return;
+    }
 
     if (messageText == commandLedOn) {  // /led_on
       ledPinStatus = LOW;
@@ -168,29 +187,52 @@ void parseMessageText(int newMessages) {
         }
         if (result == 1) {
           writeDataInEEPROM();
-
           bot.sendMessage(chatId, "Назва успішно змінена на `" + String(devName) + "`!", "Markdown");
+          return;
         }
       }
     }
-
-    if (messageText == commandSetWiFiName) { // /setWiFiName_
+    
+    if (messageText.indexOf(String(commandSetWiFiName)) != -1) { // /setWiFiName_
       int underscoreIndex = messageText.indexOf('_'); // /setWiFiName_<text>
       int result = 0;
       if (underscoreIndex != -1) {
-        bot.sendMessage(chatId, String(underscoreIndex), "");
         String wifiName = messageText.substring(underscoreIndex + 1);
-        bot.sendMessage(chatId, "WiFi name: " + wifiName, "");
+        if (wifiName == wifiSSID){
+            bot.sendMessage(chatId, "Помилка назви. Майбутня назва співпадає з поточною.", "");
+          return;
+          }
+        if (wifiName.length() > 0) {
+            result = writeWiFiNameInDeviceData(wifiName);
+          }
+        if (underscoreIndex == -1) {
+          bot.sendMessage(chatId, "Помилка назви. Має бути розділовий знак `_` після " + String(commandSetWiFiName) + ".", "");
+          return;
+        }
 
-        // result = writeWiFiNameInDeviceData(wifiName);
+        if (result == 0) {
+          bot.sendMessage(chatId, "Назва не змінена. Після символу `_` має бути майбутня назва WiFi мережі.", "");
+          return;
+        }
+        if (result == 1) {
+          writeDataInEEPROM();
+        }
+        bot.sendMessage(chatId, "Назва успішно змінена на `" + String(wifiName) + "`!", "Markdown");
       }
-
+      return;
     }
 
-    if (messageText == commandGetFromEEPROM) {
-      String result = readFromEEPROM().deviceName;
-      String response = "Назва девайса: " + result;
-      bot.sendMessage(chatId, response, "");
+    if (messageText == commandGetWiFiName) {  // /getWiFiName
+      DeviceData result = readFromEEPROM();
+      bot.sendMessage(chatId, String("Назва WiFi мережі: ") + "`" + String(result.wifiSSID) + "`", "Markdown");
+      return;
+    }
+
+    if (messageText == commandGetFromEEPROM) { // /getFromEEPROM
+      DeviceData result = readFromEEPROM();
+      String response = String("Назва девайса: ") + "`" + String(result.deviceName) + "`" + "\n" +
+      "Назва WiFi мережі: " + "`" + String(result.wifiSSID) + "`";
+      bot.sendMessage(chatId, response, "Markdown");
     }
   }
 }
