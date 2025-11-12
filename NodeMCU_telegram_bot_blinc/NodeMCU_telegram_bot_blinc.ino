@@ -147,7 +147,6 @@ void parseMessageText(int newMessages) {
 
       if (messageText.indexOf(String(commandDevice) + String(chipId)) != -1) { // /device<chipId>
         int underscoreIndex = messageText.indexOf('_'); // device<chipId>_<text>
-        Serial.println("ROW 149: " + String(underscoreIndex));
         int result = 0;
         if (underscoreIndex != -1) {
           devName = messageText.substring(underscoreIndex + 1);
@@ -159,9 +158,7 @@ void parseMessageText(int newMessages) {
             result = writeDeviceNameInDeviceData(devName);
           }
         }
-        Serial.println("ROW 157: " + (result == -1));
         if (underscoreIndex == -1) {
-          Serial.println("ROW 159");
           bot.sendMessage(chatId, "Помилка назви. Має бути розділовий знак `_` після " + String(commandDevice) + String(chipId), "");
           return;
         }
@@ -174,9 +171,6 @@ void parseMessageText(int newMessages) {
 
           bot.sendMessage(chatId, "Назва успішно змінена на `" + String(devName) + "`!", "Markdown");
         }
-        // else {
-        //   bot.sendMessage(chatId, "Не вказано розділовий знак `_`", "");
-        // }
       }
     }
 
@@ -195,7 +189,8 @@ void parseMessageText(int newMessages) {
 
     if (messageText == commandGetFromEEPROM) {
       String result = readFromEEPROM().deviceName;
-      bot.sendMessage(chatId, result, "");
+      String response = "Назва девайса: " + result;
+      bot.sendMessage(chatId, response, "");
     }
   }
 }
