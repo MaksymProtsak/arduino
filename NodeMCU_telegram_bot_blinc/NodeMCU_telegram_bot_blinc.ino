@@ -23,6 +23,10 @@ const char* commandForeverSleepOff = "/foreverSleepOff";
 const char* commandGetFromEEPROM = "/getFromEEPROM";
 const char* commandSetWiFiName = "/setWiFiName_";
 const char* commandGetWiFiName = "/getWiFiName";
+const char* commandSetWiFiPassword = "/setWifiPassword_";
+const char* commandGetWiFiPassword = "/getWifiPassword";
+const char* commandSleepOn = "/setSleepOn";
+const char* commandSleepOff = "/setSleepOff";
 
 
 bool ledPinStatus = HIGH;
@@ -38,8 +42,8 @@ UniversalTelegramBot bot(bot_token, secured_client);
 struct DeviceData {
   char deviceName[256];  // 124 кириличних символи
   char wifiSSID[64];
-   //   char wifiPassword[64];
-  // bool deepSleepEnabled;
+  char wifiPassword[64];
+  bool deepSleepStatus;
   // int64_t chatIds[MAX_CHAT_IDS];
   // int chatIdCount;
 };
@@ -114,6 +118,32 @@ int writeWiFiNameInDeviceData(String& wifiName) {
   return 1;
 }
 
+int writeWiFiPasswordInDeviceData(String& wifiPassword) {
+  size_t maxLen = sizeof(data.wifiPassword) - 1;
+  size_t len = wifiPassword.length() * 2;
+  if (len >= maxLen || len == 0) {
+    return -1;
+  }
+  if (wifiPassword == (readFromEEPROM().wifiSSID)) {
+    return 0;
+  }
+
+  for (size_t i = 0; i < len; i=i+1){
+    data.wifiPassword[i] = wifiPassword[i];
+  }
+
+  data.wifiPassword[len] = '\0';
+  return 1;
+}
+
+int writeSlpeepStatusInDeviceData(bool deepSleepStatus) {
+  if (deepSleepStatus == (readFromEEPROM().deepSleepStatus)) {
+    return 0;
+  }
+  data.deepSleepStatus = deepSleepStatus;
+  return 1;
+}
+
 
 DeviceData readFromEEPROM() {
   EEPROM.get(0, data);
@@ -132,9 +162,15 @@ void parseMessageText(int newMessages) {
         String(commandGetChipId) + " - дізнатися ID номер.\n" +
         "/" + String(chipId) + "- перевірити назву девайса\n" +
         String(commandDevice) + String(chipId) + "_" + " - Змінити назву девайса. Після `_` дописати майбутню назву\n" +
-        String(commandGetFromEEPROM) + " - дістати всі дані з EEPROM\n" +
         String(commandSetWiFiName) + " - встановити назву WiFi. Після `_` дописати майбутню назву\n" +
-        String(commandGetWiFiName) + " - переглянути назву WiFi";
+        String(commandGetWiFiName) + " - переглянути назву WiFi\n" +
+        String(commandSetWiFiPassword) + " - встановити пароль WiFi\n" + 
+        String(commandGetWiFiPassword) + " - перегляути пароль WiFi\n" +
+        String(commandSleepOn) + " - девайс засинає після надсилання повідомлення про натискання кнопки RESET\n" +
+        String(commandSleepOff) + " - девайс працює в режимі без сну\n" +
+        String(commandGetFromEEPROM) + " - дістати всі дані з EEPROM\n";
+
+      
       bot.sendMessage(chatId, response, "");
       return;
     }
@@ -228,10 +264,74 @@ void parseMessageText(int newMessages) {
       return;
     }
 
+    // const char* commandSetWiFiPassword = "/setWifiPassword";
+    if (messageText.indexOf(String(commandSetWiFiPassword)) != -1) { // /setWifiPassword_
+    int underscoreIndex = messageText.indexOf('_'); // /setWifiPassword_<text>
+      int result = 0;
+      if (underscoreIndex != -1) {
+        String wifiPassword = messageText.substring(underscoreIndex + 1);
+        if (wifiPassword == wifiSSID){
+            bot.sendMessage(chatId, "Помилка назви. Майбутня назва співпадає з поточною.", "");
+          return;
+          }
+        if (wifiPassword.length() > 0) {
+            result = writeWiFiPasswordInDeviceData(wifiPassword);
+          }
+        if (underscoreIndex == -1) {
+          bot.sendMessage(chatId, "Помилка паролю. Має бути розділовий знак `_` після " + String(commandSetWiFiPassword) + ".", "");
+          return;
+        }
+
+        if (result == 0) {
+          bot.sendMessage(chatId, "Пароль не змінено. Після символу `_` має бути пароль мережі.", "");
+          return;
+        }
+        if (result == 1) {
+          writeDataInEEPROM();
+        }
+        bot.sendMessage(chatId, "Пароль успішно змінена на `" + String(wifiPassword) + "`!", "Markdown");
+      }
+      return;
+    }
+
+    if (messageText == commandGetWiFiPassword) {  // /getWifiPassword
+      DeviceData result = readFromEEPROM();
+      bot.sendMessage(chatId, String("Пароль WiFi мережі: ") + "`" + String(result.wifiPassword) + "`", "Markdown");
+      return;
+    }
+
+    if (messageText == commandSleepOn) { // /setSleepOn
+      int result = writeSlpeepStatusInDeviceData(1);
+      if (result == 0) {
+        bot.sendMessage(chatId, "Стан сну вже активований.", "");
+        return;
+      }
+      if (result == 1) {
+        writeDataInEEPROM();
+      }
+        bot.sendMessage(chatId, "Стан сну змінений на `" + String("ON") + "`!", "Markdown");
+    return;
+    }
+
+    if (messageText == commandSleepOff) { // /setSleepOff
+      int result = writeSlpeepStatusInDeviceData(0);
+      if (result == 0) {
+        bot.sendMessage(chatId, "Стан сну вже неактивний.", "");
+        return;
+      }
+      if (result == 1) {
+        writeDataInEEPROM();
+      }
+        bot.sendMessage(chatId, "Стан сну змінений на `" + String("OFF") + "`!", "Markdown");
+    return;
+    }
+
     if (messageText == commandGetFromEEPROM) { // /getFromEEPROM
       DeviceData result = readFromEEPROM();
       String response = String("Назва девайса: ") + "`" + String(result.deviceName) + "`" + "\n" +
-      "Назва WiFi мережі: " + "`" + String(result.wifiSSID) + "`";
+      String("Назва WiFi мережі: ") + "`" + String(result.wifiSSID) + "`" + "\n" +
+      String("Пароль WiFi мережі: ") + "`" + String(result.wifiPassword) + "`" "\n" +
+      String("Стан сну: ") + "`" + String(result.deepSleepStatus ? "ON" : "OFF") + "`" + "\n";
       bot.sendMessage(chatId, response, "Markdown");
     }
   }
