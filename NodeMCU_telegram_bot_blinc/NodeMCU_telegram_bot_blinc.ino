@@ -30,6 +30,7 @@ const char* commandSleepOff = "/setSleepOff";
 
 
 bool ledPinStatus = HIGH;
+bool allMessegesSent = true;
 int LedPin = 2;
 String startMessage = "This is WiFi button.";
 String devName;
@@ -61,7 +62,7 @@ void setup() {
      devName = EEPROMresponse.deviceName;
      startMessage = devName;
    }
-    if (EEPROMresponse.deviceName) {
+  if (EEPROMresponse.wifiSSID) {
     wifiSSID = EEPROMresponse.wifiSSID;
    }
 
@@ -72,9 +73,31 @@ void setup() {
 
   secured_client.setInsecure();
   bot.sendMessage(chatId, startMessage, "");
-  if (foreverSleep) {
-    ESP.deepSleep(0);
+
+  if (EEPROMresponse.deepSleepStatus) {
+    nonLockDelay(10000);
+    if (allMessegesSent) {
+      ESP.deepSleep(0);
+    }
   }
+}
+
+void nonLockDelay(int time) {
+  unsigned long start = millis();
+  while (millis() - start < time) {
+    readMessagesIfPresent();
+    yield();
+  }
+}
+
+void readMessagesIfPresent() {
+  int lastMessageId = bot.last_message_received + 1;
+  int newMessages = bot.getUpdates(lastMessageId);
+  allMessegesSent = false;
+  if (newMessages) {
+    parseMessageText(newMessages);
+  }
+  allMessegesSent = true;
 }
 
 void writeDataInEEPROM() {
@@ -172,32 +195,27 @@ void parseMessageText(int newMessages) {
 
       
       bot.sendMessage(chatId, response, "");
-      return;
     }
 
     if (messageText == commandLedOn) {  // /led_on
       ledPinStatus = LOW;
       bot.sendMessage(chatId, F("LED IS ON"), "");
       digitalWrite(LedPin, ledPinStatus);
-      return;
     }
 
     if (messageText == commandLedOff) {  // led_off
       ledPinStatus = HIGH;
       bot.sendMessage(chatId, F("LED IS OFF"), "");
       digitalWrite(LedPin, ledPinStatus);
-      return;
     }
 
     if (messageText == commandGetChipId) {  // /get_chip_id
       bot.sendMessage(chatId, String(chipId), "");
-      return;
     }
 
     if (messageText.indexOf(String(chipId))) { // /<chipId>
       if (messageText == "/" + String(chipId)) {
         bot.sendMessage(chatId, devName, "");
-        return;
       }
 
       if (messageText.indexOf(String(commandDevice) + String(chipId)) != -1) { // /device<chipId>
@@ -255,13 +273,11 @@ void parseMessageText(int newMessages) {
         }
         bot.sendMessage(chatId, "Назва успішно змінена на `" + String(wifiName) + "`!", "Markdown");
       }
-      return;
     }
 
     if (messageText == commandGetWiFiName) {  // /getWiFiName
       DeviceData result = readFromEEPROM();
       bot.sendMessage(chatId, String("Назва WiFi мережі: ") + "`" + String(result.wifiSSID) + "`", "Markdown");
-      return;
     }
 
     // const char* commandSetWiFiPassword = "/setWifiPassword";
@@ -291,13 +307,11 @@ void parseMessageText(int newMessages) {
         }
         bot.sendMessage(chatId, "Пароль успішно змінена на `" + String(wifiPassword) + "`!", "Markdown");
       }
-      return;
     }
 
     if (messageText == commandGetWiFiPassword) {  // /getWifiPassword
       DeviceData result = readFromEEPROM();
       bot.sendMessage(chatId, String("Пароль WiFi мережі: ") + "`" + String(result.wifiPassword) + "`", "Markdown");
-      return;
     }
 
     if (messageText == commandSleepOn) { // /setSleepOn
@@ -310,7 +324,6 @@ void parseMessageText(int newMessages) {
         writeDataInEEPROM();
       }
         bot.sendMessage(chatId, "Стан сну змінений на `" + String("ON") + "`!", "Markdown");
-    return;
     }
 
     if (messageText == commandSleepOff) { // /setSleepOff
@@ -323,7 +336,6 @@ void parseMessageText(int newMessages) {
         writeDataInEEPROM();
       }
         bot.sendMessage(chatId, "Стан сну змінений на `" + String("OFF") + "`!", "Markdown");
-    return;
     }
 
     if (messageText == commandGetFromEEPROM) { // /getFromEEPROM
@@ -338,9 +350,5 @@ void parseMessageText(int newMessages) {
 }
 
 void loop() {
-  int lastMessageId = bot.last_message_received + 1;
-  int newMessages = bot.getUpdates(lastMessageId);
-  if (newMessages) {
-    parseMessageText(newMessages);
-  }
+  readMessagesIfPresent();
 }
