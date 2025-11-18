@@ -89,12 +89,48 @@ String testConnectToWiFi() {
   DeviceData EEPROMresponse = readFromEEPROM();
   String wifiSSID = EEPROMresponse.wifiSSID;
   String wifiPassword = EEPROMresponse.wifiPassword;
-  Serial.println(bool(wifiSSID));
-  if (!wifiSSID) {
-    return wifiSSID + "не вдалося зчитати назву WiFi менежі з внутнішньої пам'яті";
+  String connectionResult = "";
+  bool connectionStatus = false;
+  if (wifiSSID == "") {
+    return wifiSSID + "не вдалося зчитати назву WiFi мережі з внутнішньої пам'яті";
   }
-  Serial.println(bool(wifiPassword));
-  return "";
+
+  if (wifiPassword == "") {
+    return wifiSSID + "не вдалося зчитати пароль WiFi мережі з внутнішньої пам'яті";
+  }
+
+  int n = WiFi.scanNetworks();
+  Serial.println("Кількість мереж:");
+  Serial.println(n);
+  for (int i = 0; i < n; i++) {
+    if (WiFi.SSID(i) == wifiSSID) {
+      WiFi.mode(WIFI_STA); // Переключаємося в режим станції
+      WiFi.disconnect(); // Відключаємося від поточного підключення
+      WiFi.begin(ssid, password); // Виконуємо підключення до мережі, передаємо дані з конвертацією у C рядок
+      for (int j = 0; j < 100; j++) {
+        if (WiFi.status() != WL_CONNECTED) {
+          delay(1000);
+          Serial.println("Не вдалось підключитися." + String(j));
+          continue;
+        }
+        if (WiFi.status() == WL_CONNECTED){
+        Serial.println("Успіншо підключено.");
+        connectionStatus = true;
+        break;
+        }
+      }
+    }
+    break;
+  }
+  if (WiFi.status() != WL_CONNECTED) {
+    connectionResult = "Не вдалося підключитися до мережі " + wifiSSID + " з паролем " + wifiPassword + ".";
+  }
+  else if (WiFi.status() == WL_CONNECTED) {
+    connectionResult = "Було успішно підключено до мережі " + wifiSSID + " з паролем " + wifiPassword + "! Зараз підключено до стандартної мережі.";
+  }
+  WiFi.disconnect(); // Відключаємося від поточного підключення
+  WiFi.begin(data.wifiSSID, data.wifiPassword);
+  return connectionResult;
 }
 
 void nonLockReceiveMessages(int time) {
