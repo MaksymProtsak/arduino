@@ -100,27 +100,23 @@ String testConnectToWiFi() {
   }
 
   int n = WiFi.scanNetworks();
-  Serial.println("Кількість мереж:");
-  Serial.println(n);
   for (int i = 0; i < n; i++) {
     if (WiFi.SSID(i) == wifiSSID) {
       WiFi.mode(WIFI_STA); // Переключаємося в режим станції
       WiFi.disconnect(); // Відключаємося від поточного підключення
-      WiFi.begin(ssid, password); // Виконуємо підключення до мережі, передаємо дані з конвертацією у C рядок
-      for (int j = 0; j < 100; j++) {
+      WiFi.begin(wifiSSID, wifiPassword); // Виконуємо підключення до мережі, передаємо дані з конвертацією у C рядок
+      for (int j = 0; j < 10; j++) {
         if (WiFi.status() != WL_CONNECTED) {
-          delay(1000);
-          Serial.println("Не вдалось підключитися." + String(j));
+          delay(500);
           continue;
         }
         if (WiFi.status() == WL_CONNECTED){
-        Serial.println("Успіншо підключено.");
         connectionStatus = true;
         break;
         }
       }
+      break;
     }
-    break;
   }
   if (WiFi.status() != WL_CONNECTED) {
     connectionResult = "Не вдалося підключитися до мережі " + wifiSSID + " з паролем " + wifiPassword + ".";
@@ -129,7 +125,10 @@ String testConnectToWiFi() {
     connectionResult = "Було успішно підключено до мережі " + wifiSSID + " з паролем " + wifiPassword + "! Зараз підключено до стандартної мережі.";
   }
   WiFi.disconnect(); // Відключаємося від поточного підключення
-  WiFi.begin(data.wifiSSID, data.wifiPassword);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+  }
   return connectionResult;
 }
 
