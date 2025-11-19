@@ -27,6 +27,7 @@ const char* commandSetWiFiPassword = "/setWifiPassword_";
 const char* commandGetWiFiPassword = "/getWifiPassword";
 const char* commandSleepOn = "/setSleepOn";
 const char* commandSleepOff = "/setSleepOff";
+const char* commandTestWiFiConnect = "/testWiFiConnect";
 
 
 bool ledPinStatus = HIGH;
@@ -36,6 +37,7 @@ String startMessage = "This is WiFi button.";
 String devName;
 String wifiSSID;
 bool foreverSleep;
+bool connectToWiFi;
 
 WiFiClientSecure secured_client;
 UniversalTelegramBot bot(bot_token, secured_client);
@@ -45,6 +47,7 @@ struct DeviceData {
   char wifiSSID[64];
   char wifiPassword[64];
   bool deepSleepStatus;
+  bool connectToWiFi;
   // int64_t chatIds[MAX_CHAT_IDS];
   // int chatIdCount;
 };
@@ -75,14 +78,61 @@ void setup() {
   bot.sendMessage(chatId, startMessage, "");
 
   if (EEPROMresponse.deepSleepStatus) {
-    nonLockDelay(10000);
+    nonLockReceiveMessages(10000);
     if (allMessegesSent) {
       ESP.deepSleep(0);
     }
   }
 }
 
-void nonLockDelay(int time) {
+String testConnectToWiFi() {
+  DeviceData EEPROMresponse = readFromEEPROM();
+  String wifiSSID = EEPROMresponse.wifiSSID;
+  String wifiPassword = EEPROMresponse.wifiPassword;
+  String connectionResult = "";
+  bool connectionStatus = false;
+  if (wifiSSID == "") {
+    return wifiSSID + "не вдалося зчитати назву WiFi мережі з внутнішньої пам'яті";
+  }
+
+  if (wifiPassword == "") {
+    return wifiSSID + "не вдалося зчитати пароль WiFi мережі з внутнішньої пам'яті";
+  }
+
+  int n = WiFi.scanNetworks();
+  for (int i = 0; i < n; i++) {
+    if (WiFi.SSID(i) == wifiSSID) {
+      WiFi.mode(WIFI_STA); // Переключаємося в режим станції
+      WiFi.disconnect(); // Відключаємося від поточного підключення
+      WiFi.begin(wifiSSID, wifiPassword); // Виконуємо підключення до мережі, передаємо дані з конвертацією у C рядок
+      for (int j = 0; j < 10; j++) {
+        if (WiFi.status() != WL_CONNECTED) {
+          delay(500);
+          continue;
+        }
+        if (WiFi.status() == WL_CONNECTED){
+        connectionStatus = true;
+        break;
+        }
+      }
+      break;
+    }
+  }
+  if (WiFi.status() != WL_CONNECTED) {
+    connectionResult = "Не вдалося підключитися до мережі " + wifiSSID + " з паролем " + wifiPassword + ".";
+  }
+  else if (WiFi.status() == WL_CONNECTED) {
+    connectionResult = "Було успішно підключено до мережі " + wifiSSID + " з паролем " + wifiPassword + "! Зараз підключено до стандартної мережі.";
+  }
+  WiFi.disconnect(); // Відключаємося від поточного підключення
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+  }
+  return connectionResult;
+}
+
+void nonLockReceiveMessages(int time) {
   unsigned long start = millis();
   while (millis() - start < time) {
     readMessagesIfPresent();
@@ -167,7 +217,6 @@ int writeSlpeepStatusInDeviceData(bool deepSleepStatus) {
   return 1;
 }
 
-
 DeviceData readFromEEPROM() {
   EEPROM.get(0, data);
   return data;
@@ -191,8 +240,8 @@ void parseMessageText(int newMessages) {
         String(commandGetWiFiPassword) + " - перегляути пароль WiFi\n" +
         String(commandSleepOn) + " - девайс засинає після надсилання повідомлення про натискання кнопки RESET\n" +
         String(commandSleepOff) + " - девайс працює в режимі без сну\n" +
-        String(commandGetFromEEPROM) + " - дістати всі дані з EEPROM\n";
-
+        String(commandGetFromEEPROM) + " - дістати всі дані з EEPROM\n" +
+        String(commandTestWiFiConnect) + " - перевірка вказаної мережі WiFi";
       
       bot.sendMessage(chatId, response, "");
     }
@@ -345,6 +394,11 @@ void parseMessageText(int newMessages) {
       String("Пароль WiFi мережі: ") + "`" + String(result.wifiPassword) + "`" "\n" +
       String("Стан сну: ") + "`" + String(result.deepSleepStatus ? "ON" : "OFF") + "`" + "\n";
       bot.sendMessage(chatId, response, "Markdown");
+    }
+
+    if (messageText == commandTestWiFiConnect) { // /testWiFiConnect   
+      bot.sendMessage(chatId, "Починаю спробу підключення до вказаної WiFi мережі", "");
+      bot.sendMessage(chatId, testConnectToWiFi(), "");
     }
   }
 }
