@@ -28,6 +28,8 @@ const char* commandGetWiFiPassword = "/getWifiPassword";
 const char* commandSleepOn = "/setSleepOn";
 const char* commandSleepOff = "/setSleepOff";
 const char* commandTestWiFiConnect = "/testWiFiConnect";
+const char* commandWiFiAutoconnectOn = "/wifiAutoconnectOn";
+const char* commandWiFiAutoconnectOff = "/wifiAutoconnectOff";
 
 
 bool ledPinStatus = HIGH;
@@ -67,6 +69,9 @@ void setup() {
    }
   if (EEPROMresponse.wifiSSID) {
     wifiSSID = EEPROMresponse.wifiSSID;
+   }
+  if (EEPROMresponse.connectToWiFi) {
+    Serial.println("Підключатися до вказаної мережі"); // Треба додати логіку перевірки чи валідний SSID та пароль мережі.
    }
 
   WiFi.begin(ssid, password);
@@ -241,7 +246,9 @@ void parseMessageText(int newMessages) {
         String(commandSleepOn) + " - девайс засинає після надсилання повідомлення про натискання кнопки RESET\n" +
         String(commandSleepOff) + " - девайс працює в режимі без сну\n" +
         String(commandGetFromEEPROM) + " - дістати всі дані з EEPROM\n" +
-        String(commandTestWiFiConnect) + " - перевірка вказаної мережі WiFi";
+        String(commandTestWiFiConnect) + " - перевірка вказаної мережі WiFi\n" +
+        String(commandWiFiAutoconnectOn) + " - автоматичне підключення до вказаної мережі після увімкнення девайса\n" + 
+        String(commandWiFiAutoconnectOff) + " - підключення до мережі за замовчуванням після увімкнення";
       
       bot.sendMessage(chatId, response, "");
     }
