@@ -7,8 +7,10 @@
 // #define MAX_CHAT_IDS 100
 #define DEVICE_NAME_ADDR 0
 
-const char* ssid="OnePlus 13R A83E";
-const char* password="max123456";
+const char* defaultSSID = "OnePlus 13R A83E";
+const char* defaultPassword = "max123456";
+const char* ssid=defaultSSID;
+const char* password=defaultPassword;
 const char* bot_token = "8109829011:AAHDIZi3GLXulMbi6h43z7YT22FPNho5Z6Q";
 const char* chatId = "606063499";
 const int chipId = ESP.getChipId();
@@ -71,12 +73,26 @@ void setup() {
     wifiSSID = EEPROMresponse.wifiSSID;
    }
   if (EEPROMresponse.connectToWiFi) {
-    Serial.println("Підключатися до вказаної мережі"); // Треба додати логіку перевірки чи валідний SSID та пароль мережі.
+    Serial.println("Підключатися до вказаної мережі");
+    if (EEPROMresponse.wifiSSID && EEPROMresponse.wifiPassword) {
+      ssid = EEPROMresponse.wifiSSID;
+      password = EEPROMresponse.wifiPassword;
+    }
    }
 
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
+  delayUntilConnectToWiFi(50);
+
+  if (WiFi.status() != WL_CONNECTED) {
+    writeWiFiAutoconnecctStatusInDeviceData(0);
+    writeDataInEEPROM();
+    ssid = defaultSSID;
+    password = defaultPassword;
+    WiFi.begin(ssid, password);
+    delayUntilConnectToWiFi(50);
+    if (WiFi.status() != WL_CONNECTED) {
+      ESP.restart();
+    }
   }
 
   secured_client.setInsecure();
@@ -90,12 +106,23 @@ void setup() {
   }
 }
 
+void delayUntilConnectToWiFi(int timesForDelay){
+  for (int j = 0; j < timesForDelay; j++) {
+    if (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      continue;
+    }
+    if (WiFi.status() == WL_CONNECTED){
+      break;
+    }
+  }
+}
+
 String testConnectToWiFi() {
   DeviceData EEPROMresponse = readFromEEPROM();
   String wifiSSID = EEPROMresponse.wifiSSID;
   String wifiPassword = EEPROMresponse.wifiPassword;
   String connectionResult = "";
-  bool connectionStatus = false;
   if (wifiSSID == "") {
     return wifiSSID + "не вдалося зчитати назву WiFi мережі з внутнішньої пам'яті";
   }
@@ -110,16 +137,7 @@ String testConnectToWiFi() {
       WiFi.mode(WIFI_STA); // Переключаємося в режим станції
       WiFi.disconnect(); // Відключаємося від поточного підключення
       WiFi.begin(wifiSSID, wifiPassword); // Виконуємо підключення до мережі, передаємо дані з конвертацією у C рядок
-      for (int j = 0; j < 10; j++) {
-        if (WiFi.status() != WL_CONNECTED) {
-          delay(500);
-          continue;
-        }
-        if (WiFi.status() == WL_CONNECTED){
-        connectionStatus = true;
-        break;
-        }
-      }
+      delayUntilConnectToWiFi(10);
       break;
     }
   }
@@ -219,6 +237,11 @@ int writeSlpeepStatusInDeviceData(bool deepSleepStatus) {
     return 0;
   }
   data.deepSleepStatus = deepSleepStatus;
+  return 1;
+}
+
+int writeWiFiAutoconnecctStatusInDeviceData(bool autoconnectStatus) {
+  data.connectToWiFi = autoconnectStatus;
   return 1;
 }
 
@@ -399,13 +422,34 @@ void parseMessageText(int newMessages) {
       String response = String("Назва девайса: ") + "`" + String(result.deviceName) + "`" + "\n" +
       String("Назва WiFi мережі: ") + "`" + String(result.wifiSSID) + "`" + "\n" +
       String("Пароль WiFi мережі: ") + "`" + String(result.wifiPassword) + "`" "\n" +
-      String("Стан сну: ") + "`" + String(result.deepSleepStatus ? "ON" : "OFF") + "`" + "\n";
+      String("Стан сну: ") + "`" + String(result.deepSleepStatus ? "ON" : "OFF") + "`" + "\n" +
+      String("Стан автопідключеня до встановленої WiFi мережі: ") + "`" + String(result.connectToWiFi ? "ON" : "OFF") + "`" + "\n";
       bot.sendMessage(chatId, response, "Markdown");
     }
 
     if (messageText == commandTestWiFiConnect) { // /testWiFiConnect   
       bot.sendMessage(chatId, "Починаю спробу підключення до вказаної WiFi мережі", "");
       bot.sendMessage(chatId, testConnectToWiFi(), "");
+    }
+
+    if (messageText == commandWiFiAutoconnectOn) { // /wifiAutoconnectOn
+      int result = writeWiFiAutoconnecctStatusInDeviceData(1);
+      if (result == 1) {
+        writeDataInEEPROM();
+      }
+        bot.sendMessage(chatId, "Стан автопідключення до вказаної мережі змінений на `" + String("ON") + "`!", "Markdown");
+    }
+
+    if (messageText == commandWiFiAutoconnectOff) { // /wifiAutoconnectOff
+      int result = writeWiFiAutoconnecctStatusInDeviceData(0);
+      if (result == 0) {
+        bot.sendMessage(chatId, "Стан автопідключення до WiFi мережі за замовченням вже активований.", "");
+        return;
+      }
+      if (result == 1) {
+        writeDataInEEPROM();
+      }
+        bot.sendMessage(chatId, "Стан автопідключення до вказаної мережі змінений на `" + String("OFF") + "`!", "Markdown");
     }
   }
 }
