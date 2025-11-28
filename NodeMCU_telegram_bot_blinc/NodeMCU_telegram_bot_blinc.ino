@@ -37,6 +37,9 @@ const char* commandWiFiAutoconnectOff = "/wifiAutoconnectOff";
 bool ledPinStatus = HIGH;
 bool allMessegesSent = true;
 int LedPin = 2;
+int redPin = 13;
+int greenPin = 12;
+int bluePin = 15;
 String startMessage = "This is WiFi button.";
 String devName;
 String wifiSSID;
@@ -60,7 +63,13 @@ DeviceData data;
 
 void setup() {
   pinMode(LedPin, OUTPUT);
+  pinMode(bluePin, OUTPUT);
+  pinMode(redPin, OUTPUT);
+  pinMode(greenPin, OUTPUT);
   digitalWrite(LedPin, ledPinStatus);
+  digitalWrite(bluePin, LOW);
+  digitalWrite(redPin, HIGH);
+  digitalWrite(greenPin, LOW);
   Serial.begin(115200);
 
   EEPROM.begin(EEPROM_SIZE);
@@ -79,13 +88,13 @@ void setup() {
       password = EEPROMresponse.wifiPassword;
     }
    }
-
   WiFi.begin(ssid, password);
   delayUntilConnectToWiFi(50);
+  digitalWrite(redPin, LOW);
 
   if (WiFi.status() != WL_CONNECTED) {
-    writeWiFiAutoconnecctStatusInDeviceData(0);
-    writeDataInEEPROM();
+    //writeWiFiAutoconnecctStatusInDeviceData(0);
+    //writeDataInEEPROM();
     ssid = defaultSSID;
     password = defaultPassword;
     WiFi.begin(ssid, password);
@@ -94,9 +103,14 @@ void setup() {
       ESP.restart();
     }
   }
-
+  digitalWrite(bluePin, HIGH);
+  delay(500);
   secured_client.setInsecure();
   bot.sendMessage(chatId, startMessage, "");
+  digitalWrite(bluePin, LOW);
+  digitalWrite(greenPin, HIGH);
+  delay(500);
+  digitalWrite(greenPin, LOW);
 
   if (EEPROMresponse.deepSleepStatus) {
     nonLockReceiveMessages(10000);
@@ -109,16 +123,25 @@ void setup() {
 void delayUntilConnectToWiFi(int timesForDelay){
   for (int j = 0; j < timesForDelay; j++) {
     if (WiFi.status() != WL_CONNECTED) {
-      delay(500);
+      digitalWrite(redPin, LOW);
+      delay(250);
+      digitalWrite(redPin, HIGH);
+      delay(250);
+      digitalWrite(redPin, LOW);
       continue;
     }
     if (WiFi.status() == WL_CONNECTED){
+      digitalWrite(bluePin, HIGH);
+      delay(500);
+      digitalWrite(bluePin, LOW);
       break;
     }
   }
 }
 
 String testConnectToWiFi() {
+  nonLockReceiveMessages(1000);
+  digitalWrite(redPin, HIGH);
   DeviceData EEPROMresponse = readFromEEPROM();
   String wifiSSID = EEPROMresponse.wifiSSID;
   String wifiPassword = EEPROMresponse.wifiPassword;
@@ -141,17 +164,24 @@ String testConnectToWiFi() {
       break;
     }
   }
+  digitalWrite(redPin, LOW);
   if (WiFi.status() != WL_CONNECTED) {
     connectionResult = "Не вдалося підключитися до мережі " + wifiSSID + " з паролем " + wifiPassword + ".";
   }
   else if (WiFi.status() == WL_CONNECTED) {
+    digitalWrite(bluePin, HIGH);
     connectionResult = "Було успішно підключено до мережі " + wifiSSID + " з паролем " + wifiPassword + "! Зараз підключено до стандартної мережі.";
   }
+  digitalWrite(bluePin, LOW);
+  digitalWrite(redPin, HIGH);
   WiFi.disconnect(); // Відключаємося від поточного підключення
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-  }
+  //while (WiFi.status() != WL_CONNECTED) {
+  //  delay(500);
+  //}
+  delayUntilConnectToWiFi(50);
+  digitalWrite(redPin, LOW);
+
   return connectionResult;
 }
 
