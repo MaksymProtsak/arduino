@@ -123,17 +123,17 @@ void setup() {
 void delayUntilConnectToWiFi(int timesForDelay){
   for (int j = 0; j < timesForDelay; j++) {
     if (WiFi.status() != WL_CONNECTED) {
-      digitalWrite(redPin, LOW);
-      delay(250);
-      digitalWrite(redPin, HIGH);
-      delay(250);
-      digitalWrite(redPin, LOW);
+      analogWrite(redPin, 0);
+      delay(450);
+      analogWrite(redPin, 512);
+      delay(50);
+      analogWrite(redPin, 0);
       continue;
     }
     if (WiFi.status() == WL_CONNECTED){
-      digitalWrite(bluePin, HIGH);
+      analogWrite(bluePin, 512);
       delay(500);
-      digitalWrite(bluePin, LOW);
+      analogWrite(bluePin, 0);
       break;
     }
   }
