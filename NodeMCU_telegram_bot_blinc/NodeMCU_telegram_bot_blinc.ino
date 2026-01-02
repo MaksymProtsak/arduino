@@ -17,7 +17,13 @@ const int chipId = ESP.getChipId();
 
 const char* commandStart = "/start";
 const char* commandLedOn = "/led_on";
+const char* commandLedOnRed = "/led_on_red";
+const char* commandLedOnGreen = "/led_on_green";
+const char* commandLedOnBlue = "/led_on_blue";
 const char* commandLedOff = "/led_off";
+const char* commandLedOffRed = "/led_off_red";
+const char* commandLedOffGreen = "/led_off_green";
+const char* commandLedOffBlue = "/led_off_blue";
 const char* commandGetChipId = "/get_chip_id";
 const char* commandDevice = "/device";
 const char* commandForeverSleepOn = "/foreverSleepOn";
@@ -38,8 +44,8 @@ bool ledPinStatus = HIGH;
 bool allMessegesSent = true;
 int LedPin = 2;
 int redPin = 13;
-int greenPin = 12;
-int bluePin = 15;
+int greenPin = 15;
+int bluePin = 12;
 String startMessage = "This is WiFi button.";
 String devName;
 String wifiSSID;
@@ -93,8 +99,6 @@ void setup() {
   digitalWrite(redPin, LOW);
 
   if (WiFi.status() != WL_CONNECTED) {
-    //writeWiFiAutoconnecctStatusInDeviceData(0);
-    //writeDataInEEPROM();
     ssid = defaultSSID;
     password = defaultPassword;
     WiFi.begin(ssid, password);
@@ -123,17 +127,17 @@ void setup() {
 void delayUntilConnectToWiFi(int timesForDelay){
   for (int j = 0; j < timesForDelay; j++) {
     if (WiFi.status() != WL_CONNECTED) {
-      digitalWrite(redPin, LOW);
-      delay(250);
-      digitalWrite(redPin, HIGH);
-      delay(250);
-      digitalWrite(redPin, LOW);
+      analogWrite(redPin, 0);
+      delay(450);
+      analogWrite(redPin, 512);
+      delay(50);
+      analogWrite(redPin, 0);
       continue;
     }
     if (WiFi.status() == WL_CONNECTED){
-      digitalWrite(bluePin, HIGH);
+      analogWrite(bluePin, 512);
       delay(500);
-      digitalWrite(bluePin, LOW);
+      analogWrite(bluePin, 0);
       break;
     }
   }
@@ -288,7 +292,13 @@ void parseMessageText(int newMessages) {
       String response =
         "Команди:\n" +
         String(commandLedOn) + " - увімкнути світлодіод.\n" +
+        String(commandLedOnRed) + " - увімкнути червоний світлодіод.\n" +
+        String(commandLedOnGreen) + " - увімкнути зелений світлодіод.\n" +
+        String(commandLedOnBlue) + " - увімкнути синій світлодіод.\n" +
         String(commandLedOff) + " - вимкнути світлодіод.\n" +
+        String(commandLedOffRed) + " - вимкнути червоний світлодіод.\n" +
+        String(commandLedOffGreen) + " - вимкнути зелений світлодіод.\n" +
+        String(commandLedOffBlue) + " - вимкнути синій світлодіод.\n" +
         String(commandGetChipId) + " - дізнатися ID номер.\n" +
         "/" + String(chipId) + "- перевірити назву девайса\n" +
         String(commandDevice) + String(chipId) + "_" + " - Змінити назву девайса. Після `_` дописати майбутню назву\n" +
@@ -312,10 +322,40 @@ void parseMessageText(int newMessages) {
       digitalWrite(LedPin, ledPinStatus);
     }
 
+    if (messageText == commandLedOnRed) {  // /led_on_red
+      bot.sendMessage(chatId, F("LED RED IS ON"), "");
+      digitalWrite(redPin, HIGH);
+    }
+    
+    if (messageText == commandLedOnGreen) {  // /led_on_green
+      bot.sendMessage(chatId, F("LED GREEN IS ON"), "");
+      digitalWrite(greenPin, HIGH);
+    }
+
+    if (messageText == commandLedOnBlue) {  // /led_on_blue
+      bot.sendMessage(chatId, F("LED BLUE IS ON"), "");
+      digitalWrite(bluePin, HIGH);
+    }
+
     if (messageText == commandLedOff) {  // led_off
       ledPinStatus = HIGH;
       bot.sendMessage(chatId, F("LED IS OFF"), "");
       digitalWrite(LedPin, ledPinStatus);
+    }
+
+    if (messageText == commandLedOffRed) {  // led_off_red
+      bot.sendMessage(chatId, F("LED RED IS OFF"), "");
+      digitalWrite(redPin, LOW);
+    }
+
+    if (messageText == commandLedOffGreen) {  // led_off_green
+      bot.sendMessage(chatId, F("LED GREEN IS OFF"), "");
+      digitalWrite(greenPin, LOW);
+    }
+
+    if (messageText == commandLedOffBlue) {  // led_off_blue
+      bot.sendMessage(chatId, F("LED BLUE IS OFF"), "");
+      digitalWrite(bluePin, LOW);
     }
 
     if (messageText == commandGetChipId) {  // /get_chip_id
