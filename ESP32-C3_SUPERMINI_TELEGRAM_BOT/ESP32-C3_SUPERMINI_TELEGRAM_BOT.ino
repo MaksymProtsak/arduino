@@ -42,10 +42,10 @@ const char* commandWiFiAutoconnectOff = "/wifiAutoconnectOff";
 
 bool ledPinStatus = HIGH;
 bool allMessegesSent = true;
-int LedPin = 2;
-int redPin = 13;
-int greenPin = 15;
-int bluePin = 12;
+int LedPin = 8;
+int redPin = 3;
+int greenPin = 4;
+int bluePin = 5;
 String startMessage = "This is WiFi button.";
 String devName;
 String wifiSSID;
@@ -88,7 +88,7 @@ void setup() {
     wifiSSID = EEPROMresponse.wifiSSID;
    }
   if (EEPROMresponse.connectToWiFi) {
-    Serial.println("Підключатися до вказаної мережі");
+    Serial.println("row 91: Підключаюся до вказаної мережі");
     if (EEPROMresponse.wifiSSID && EEPROMresponse.wifiPassword) {
       ssid = EEPROMresponse.wifiSSID;
       password = EEPROMresponse.wifiPassword;
@@ -102,8 +102,14 @@ void setup() {
     ssid = defaultSSID;
     password = defaultPassword;
     WiFi.begin(ssid, password);
+    Serial.println("row 105: Підключаюся до дефолтної мережі");
     delayUntilConnectToWiFi(50);
     if (WiFi.status() != WL_CONNECTED) {
+      Serial.println("row 108: Не вдалося підключаюся до дефолтної мережі");
+      Serial.println("row 109: SSID, PASSWORD");
+      Serial.println(ssid);
+      Serial.println(password);
+      delay(1000);
       ESP.restart();
     }
   }
@@ -119,7 +125,7 @@ void setup() {
   if (EEPROMresponse.deepSleepStatus) {
     nonLockReceiveMessages(10000);
     if (allMessegesSent) {
-      ESP.deepSleep(0);
+      esp_deep_sleep_start();
     }
   }
 }
