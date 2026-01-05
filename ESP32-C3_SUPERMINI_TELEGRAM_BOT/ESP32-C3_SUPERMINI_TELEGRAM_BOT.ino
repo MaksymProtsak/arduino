@@ -17,7 +17,13 @@ const uint32_t chipId = ESP.getEfuseMac() >> 24;
 
 const char* commandStart = "/start";
 const char* commandLedOn = "/led_on";
+const char* commandLedOnRed = "/led_on_red";
+const char* commandLedOnGreen = "/led_on_green";
+const char* commandLedOnBlue = "/led_on_blue";
 const char* commandLedOff = "/led_off";
+const char* commandLedOffRed = "/led_off_red";
+const char* commandLedOffGreen = "/led_off_green";
+const char* commandLedOffBlue = "/led_off_blue";
 const char* commandGetChipId = "/get_chip_id";
 const char* commandDevice = "/device";
 const char* commandForeverSleepOn = "/foreverSleepOn";
@@ -36,7 +42,10 @@ const char* commandWiFiAutoconnectOff = "/wifiAutoconnectOff";
 
 bool ledPinStatus = HIGH;
 bool allMessegesSent = true;
-int LedPin = 8;
+int LedPin = 2;
+int redPin = 13;
+int greenPin = 15;
+int bluePin = 12;
 String startMessage = "This is WiFi button.";
 String devName;
 String wifiSSID;
@@ -60,7 +69,13 @@ DeviceData data;
 
 void setup() {
   pinMode(LedPin, OUTPUT);
+  pinMode(bluePin, OUTPUT);
+  pinMode(redPin, OUTPUT);
+  pinMode(greenPin, OUTPUT);
   digitalWrite(LedPin, ledPinStatus);
+  digitalWrite(bluePin, LOW);
+  digitalWrite(redPin, HIGH);
+  digitalWrite(greenPin, LOW);
   Serial.begin(115200);
 
   EEPROM.begin(EEPROM_SIZE);
@@ -73,19 +88,17 @@ void setup() {
     wifiSSID = EEPROMresponse.wifiSSID;
    }
   if (EEPROMresponse.connectToWiFi) {
-    Serial.println("Підключатися до вказаної мережі"); // Треба додати логіку перевірки чи валідний SSID та пароль мережі.
+    Serial.println("Підключатися до вказаної мережі");
     if (EEPROMresponse.wifiSSID && EEPROMresponse.wifiPassword) {
       ssid = EEPROMresponse.wifiSSID;
       password = EEPROMresponse.wifiPassword;
     }
    }
-
   WiFi.begin(ssid, password);
   delayUntilConnectToWiFi(50);
+  digitalWrite(redPin, LOW);
 
   if (WiFi.status() != WL_CONNECTED) {
-    writeWiFiAutoconnecctStatusInDeviceData(0);
-    writeDataInEEPROM();
     ssid = defaultSSID;
     password = defaultPassword;
     WiFi.begin(ssid, password);
@@ -94,9 +107,14 @@ void setup() {
       ESP.restart();
     }
   }
-
+  digitalWrite(bluePin, HIGH);
+  delay(500);
   secured_client.setInsecure();
   bot.sendMessage(chatId, startMessage, "");
+  digitalWrite(bluePin, LOW);
+  digitalWrite(greenPin, HIGH);
+  delay(500);
+  digitalWrite(greenPin, LOW);
 
   if (EEPROMresponse.deepSleepStatus) {
     nonLockReceiveMessages(10000);
@@ -109,16 +127,25 @@ void setup() {
 void delayUntilConnectToWiFi(int timesForDelay){
   for (int j = 0; j < timesForDelay; j++) {
     if (WiFi.status() != WL_CONNECTED) {
-      delay(500);
+      analogWrite(redPin, 0);
+      delay(450);
+      analogWrite(redPin, 512);
+      delay(50);
+      analogWrite(redPin, 0);
       continue;
     }
     if (WiFi.status() == WL_CONNECTED){
+      analogWrite(bluePin, 512);
+      delay(500);
+      analogWrite(bluePin, 0);
       break;
     }
   }
 }
 
 String testConnectToWiFi() {
+  nonLockReceiveMessages(1000);
+  digitalWrite(redPin, HIGH);
   DeviceData EEPROMresponse = readFromEEPROM();
   String wifiSSID = EEPROMresponse.wifiSSID;
   String wifiPassword = EEPROMresponse.wifiPassword;
@@ -141,17 +168,24 @@ String testConnectToWiFi() {
       break;
     }
   }
+  digitalWrite(redPin, LOW);
   if (WiFi.status() != WL_CONNECTED) {
     connectionResult = "Не вдалося підключитися до мережі " + wifiSSID + " з паролем " + wifiPassword + ".";
   }
   else if (WiFi.status() == WL_CONNECTED) {
+    digitalWrite(bluePin, HIGH);
     connectionResult = "Було успішно підключено до мережі " + wifiSSID + " з паролем " + wifiPassword + "! Зараз підключено до стандартної мережі.";
   }
+  digitalWrite(bluePin, LOW);
+  digitalWrite(redPin, HIGH);
   WiFi.disconnect(); // Відключаємося від поточного підключення
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-  }
+  //while (WiFi.status() != WL_CONNECTED) {
+  //  delay(500);
+  //}
+  delayUntilConnectToWiFi(50);
+  digitalWrite(redPin, LOW);
+
   return connectionResult;
 }
 
@@ -258,21 +292,27 @@ void parseMessageText(int newMessages) {
       String response =
         "Команди:\n" +
         String(commandLedOn) + " - увімкнути світлодіод.\n" +
+        String(commandLedOnRed) + " - увімкнути червоний світлодіод.\n" +
+        String(commandLedOnGreen) + " - увімкнути зелений світлодіод.\n" +
+        String(commandLedOnBlue) + " - увімкнути синій світлодіод.\n" +
         String(commandLedOff) + " - вимкнути світлодіод.\n" +
+        String(commandLedOffRed) + " - вимкнути червоний світлодіод.\n" +
+        String(commandLedOffGreen) + " - вимкнути зелений світлодіод.\n" +
+        String(commandLedOffBlue) + " - вимкнути синій світлодіод.\n" +
         String(commandGetChipId) + " - дізнатися ID номер.\n" +
         "/" + String(chipId) + "- перевірити назву девайса\n" +
         String(commandDevice) + String(chipId) + "_" + " - Змінити назву девайса. Після `_` дописати майбутню назву\n" +
         String(commandSetWiFiName) + " - встановити назву WiFi. Після `_` дописати майбутню назву\n" +
         String(commandGetWiFiName) + " - переглянути назву WiFi\n" +
-        String(commandSetWiFiPassword) + " - встановити пароль WiFi\n" + 
+        String(commandSetWiFiPassword) + " - встановити пароль WiFi\n" +
         String(commandGetWiFiPassword) + " - перегляути пароль WiFi\n" +
         String(commandSleepOn) + " - девайс засинає після надсилання повідомлення про натискання кнопки RESET\n" +
         String(commandSleepOff) + " - девайс працює в режимі без сну\n" +
         String(commandGetFromEEPROM) + " - дістати всі дані з EEPROM\n" +
         String(commandTestWiFiConnect) + " - перевірка вказаної мережі WiFi\n" +
-        String(commandWiFiAutoconnectOn) + " - автоматичне підключення до вказаної мережі після увімкнення девайса\n" + 
+        String(commandWiFiAutoconnectOn) + " - автоматичне підключення до вказаної мережі після увімкнення девайса\n" +
         String(commandWiFiAutoconnectOff) + " - підключення до мережі за замовчуванням після увімкнення";
-      
+
       bot.sendMessage(chatId, response, "");
     }
 
@@ -282,10 +322,40 @@ void parseMessageText(int newMessages) {
       digitalWrite(LedPin, ledPinStatus);
     }
 
+    if (messageText == commandLedOnRed) {  // /led_on_red
+      bot.sendMessage(chatId, F("LED RED IS ON"), "");
+      digitalWrite(redPin, HIGH);
+    }
+
+    if (messageText == commandLedOnGreen) {  // /led_on_green
+      bot.sendMessage(chatId, F("LED GREEN IS ON"), "");
+      digitalWrite(greenPin, HIGH);
+    }
+
+    if (messageText == commandLedOnBlue) {  // /led_on_blue
+      bot.sendMessage(chatId, F("LED BLUE IS ON"), "");
+      digitalWrite(bluePin, HIGH);
+    }
+
     if (messageText == commandLedOff) {  // led_off
       ledPinStatus = HIGH;
       bot.sendMessage(chatId, F("LED IS OFF"), "");
       digitalWrite(LedPin, ledPinStatus);
+    }
+
+    if (messageText == commandLedOffRed) {  // led_off_red
+      bot.sendMessage(chatId, F("LED RED IS OFF"), "");
+      digitalWrite(redPin, LOW);
+    }
+
+    if (messageText == commandLedOffGreen) {  // led_off_green
+      bot.sendMessage(chatId, F("LED GREEN IS OFF"), "");
+      digitalWrite(greenPin, LOW);
+    }
+
+    if (messageText == commandLedOffBlue) {  // led_off_blue
+      bot.sendMessage(chatId, F("LED BLUE IS OFF"), "");
+      digitalWrite(bluePin, LOW);
     }
 
     if (messageText == commandGetChipId) {  // /get_chip_id
