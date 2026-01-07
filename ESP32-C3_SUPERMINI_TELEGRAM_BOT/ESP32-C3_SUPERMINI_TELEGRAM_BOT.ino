@@ -11,7 +11,7 @@ const char* defaultSSID = "OnePlus 13R A83E";
 const char* defaultPassword = "max123456";
 const char* ssid=defaultSSID;
 const char* password=defaultPassword;
-const char* bot_token = "8109829011:AAHDIZi3GLXulMbi6h43z7YT22FPNho5Z6Q";
+const char* bot_token = "****";
 const char* chatId = "606063499";
 const uint32_t chipId = ESP.getEfuseMac() >> 24;
 
@@ -101,7 +101,10 @@ void setup() {
   if (WiFi.status() != WL_CONNECTED) {
     ssid = defaultSSID;
     password = defaultPassword;
+    WiFi.disconnect(true);
+    delay(200);
     WiFi.begin(ssid, password);
+    Serial.println("Підключаюся до дефолтної мережі");
     delayUntilConnectToWiFi(50);
     if (WiFi.status() != WL_CONNECTED) {
       ESP.restart();
@@ -119,7 +122,7 @@ void setup() {
   if (EEPROMresponse.deepSleepStatus) {
     nonLockReceiveMessages(10000);
     if (allMessegesSent) {
-      ESP.deepSleep(0);
+      esp_deep_sleep_start();
     }
   }
 }
