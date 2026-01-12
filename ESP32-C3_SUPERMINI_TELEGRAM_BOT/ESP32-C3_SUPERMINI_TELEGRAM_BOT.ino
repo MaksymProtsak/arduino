@@ -11,7 +11,7 @@ const char* defaultSSID = "OnePlus 13R A83E";
 const char* defaultPassword = "max123456";
 const char* ssid=defaultSSID;
 const char* password=defaultPassword;
-const char* bot_token = "****";
+const char* bot_token = "******";
 const char* chatId = "606063499";
 const uint32_t chipId = ESP.getEfuseMac() >> 24;
 
@@ -42,10 +42,10 @@ const char* commandWiFiAutoconnectOff = "/wifiAutoconnectOff";
 
 bool ledPinStatus = HIGH;
 bool allMessegesSent = true;
-int LedPin = 2;
-int redPin = 13;
-int greenPin = 15;
-int bluePin = 12;
+int LedPin = 8;
+int redPin = 5;
+int greenPin = 6;
+int bluePin = 7;
 String startMessage = "This is WiFi button.";
 String devName;
 String wifiSSID;
@@ -77,6 +77,7 @@ void setup() {
   digitalWrite(redPin, HIGH);
   digitalWrite(greenPin, LOW);
   Serial.begin(115200);
+  delay(1000);
 
   EEPROM.begin(EEPROM_SIZE);
   DeviceData EEPROMresponse = readFromEEPROM();
@@ -88,7 +89,7 @@ void setup() {
     wifiSSID = EEPROMresponse.wifiSSID;
    }
   if (EEPROMresponse.connectToWiFi) {
-    Serial.println("Підключатися до вказаної мережі");
+    Serial.println("Підключаюся до вказаної мережі");
     if (EEPROMresponse.wifiSSID && EEPROMresponse.wifiPassword) {
       ssid = EEPROMresponse.wifiSSID;
       password = EEPROMresponse.wifiPassword;
@@ -110,6 +111,7 @@ void setup() {
       ESP.restart();
     }
   }
+  Serial.println("Підключено до вказаної мережі");
   digitalWrite(bluePin, HIGH);
   delay(500);
   secured_client.setInsecure();
@@ -147,11 +149,13 @@ void delayUntilConnectToWiFi(int timesForDelay){
 }
 
 String testConnectToWiFi() {
+  Serial.println("testConnectToWiFi");
   nonLockReceiveMessages(1000);
   digitalWrite(redPin, HIGH);
   DeviceData EEPROMresponse = readFromEEPROM();
   String wifiSSID = EEPROMresponse.wifiSSID;
   String wifiPassword = EEPROMresponse.wifiPassword;
+  Serial.println(wifiSSID + " " + wifiPassword);
   String connectionResult = "";
   if (wifiSSID == "") {
     return wifiSSID + "не вдалося зчитати назву WiFi мережі з внутнішньої пам'яті";
@@ -179,6 +183,7 @@ String testConnectToWiFi() {
     digitalWrite(bluePin, HIGH);
     connectionResult = "Було успішно підключено до мережі " + wifiSSID + " з паролем " + wifiPassword + "! Зараз підключено до стандартної мережі.";
   }
+  Serial.println(connectionResult);
   digitalWrite(bluePin, LOW);
   digitalWrite(redPin, HIGH);
   WiFi.disconnect(); // Відключаємося від поточного підключення
